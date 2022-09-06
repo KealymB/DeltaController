@@ -1,11 +1,9 @@
 #include <AccelStepper.h>
 #include <MultiStepper.h>
-#include <TMC2208Stepper.h>
+#include <TMCStepper.h>
 #include "Kinematics.h"
-
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
-
-// Motor pins
+// Motors
 #define EN_PIN        12
 // M1 
 #define M1_STEP_PIN   11
@@ -22,12 +20,23 @@
 #define MS2           9
 #define MS3           6
 
+// Driver
+#define SW_RX 3 
+#define SW_TX 2
+#define R_SENSE 0.11f //make sure this is correct
 // Motor Params
 #define MAXSPEED 150
+// Kinematic Params (in mm, origin in center of delta)
+#define X_BOUND_MIN -50
+#define X_BOUND_MAX 50
+#define Y_BOUND_MIN -50
+#define Y_BOUND_MAX 50
+#define Z_BOUND_MIN 50
+#define Z_BOUND_MAX 290
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-TMC2208Stepper driver = TMC2208Stepper(3, 2); // create TMC2208 driver
+TMC2208Stepper driver = TMC2208Stepper(SW_RX, SW_TX, R_SENSE); // create TMC2208 driver
 
 //create motors
 AccelStepper M1(AccelStepper::DRIVER, M1_STEP_PIN, M1_DIR_PIN); 
@@ -48,26 +57,26 @@ String commands[20];
 extern Coordinate_f end_effector; //Stores the end effector coordinates (declared in Kinematics.cpp)
 
 void setup() {
-  driver.beginSerial(9600);
-  Serial.begin(115200);        // Start hardware serial
+  driver.beginSerial(9600);   // Start driver software serial  
+  Serial.begin(115200);       // Start hardware serial
   
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
-  Serial.println("Setting up stepper driver");
+  Serial.println("I0-Setting up stepper driver");
 
   // Stepper Driver Setup
-  driver.push();                // Reset registers
+  driver.begin();               // Initiate pins and registeries
+  driver.pdn_disable(1);        // Use PDN/UART pin for communication
+  driver.toff(1);               // Enables driver in software
   driver.mstep_reg_select(1);   // microstep read from register
   driver.microsteps(16);
   driver.mres(4);
-  driver.pdn_disable(true);     // Use PDN/UART pin for communication
   driver.I_scale_analog(false); // Use internal voltage reference
-  driver.rms_current(700);      // Set driver current 600mA (900mA caused drivers to die)
-  driver.toff(2);               // Enable driver in software
-  driver.clear_otpw();        // clear over temp flag
-
+  driver.rms_current(700);      // Set driver current 700mA (900mA caused drivers to die)
+  driver.en_spreadCycle(false);  // Disable Spread cycle
+  
   // Stepper Setup
   M1.setEnablePin(EN_PIN);
   M1.setPinsInverted(false, false, true);
@@ -96,7 +105,7 @@ void setup() {
   positions[2] = 0;
 
   //home motors
-  Serial.println("Homing motors, please wait...");
+  Serial.println("I1-Homing motors, please wait...");
   
   while (!homed[0]||!homed[1]||!homed[2]) {
     if(digitalRead(MS1) != HIGH && !homed[0]){
@@ -117,13 +126,7 @@ void setup() {
     actuators.moveTo(positions);
     actuators.runSpeedToPosition();
   }
-  Serial.println("Homing Complete");
-  Serial.println("M1 Pos: ");
-  Serial.println(positions[0]);
-  Serial.println("M2 Pos: ");
-  Serial.println(positions[1]);
-  Serial.println("M3 Pos: ");
-  Serial.println(positions[2]);
+  Serial.println("I2-Homing Complete");
 }
 
 void loop() {
@@ -132,40 +135,28 @@ void loop() {
     command = Serial.readString();
     splitCommand();
     
-    if(commands[0] == "M1"){ //Direct Jog
-      positions[0] = (long) command.substring(3).toInt();
-    }
-    if(commands[0] == "M2"){ //Direct Jog
-      positions[1] = (long) command.substring(3).toInt();
-    }
-    if(commands[0] == "M3"){ //Direct Jog
-      positions[2] = (long) command.substring(3).toInt();
-    }
-    if(commands[0] == "LM"){ //Linear Move
+    //Linear Move
+    if(commands[0] == "LM"){
       float xt = commands[1].toFloat();
       float yt = commands[2].toFloat();
       float zt = commands[3].toFloat();
 
-      Serial.println("xt: ");
-      Serial.println(xt);
-      Serial.println("yt: ");
-      Serial.println(yt);      
-      Serial.println("zt: ");
-      Serial.println(zt);
-      
-      linear_move(xt, yt, zt, 1.0, positions, &actuators);
+      //check bounds
+      if(inBounds(xt, yt, zt)){
+        linear_move(xt, yt, zt, 1.0, positions, &actuators);
+        Serial.println("A2-Linear move complete");
+      }else{
+        Serial.println("E0-Commanded position is out of bounds");
+      }
     }
   }
-  
-//  actuators.moveTo(positions);
-//  actuators.runSpeedToPosition(); // Blocks until all are in position
 
-//  if(driver.checkOT()){ // checks to see if over tempriture flag is true
-//    Serial.println("Overheating, turning off motors...");
-//    M1.disableOutputs();
-//    M2.disableOutputs();
-//    M3.disableOutputs();
-//  }
+  if(driver.otpw()){ // checks to see if over tempriture flag is true
+    Serial.println("E10-Overheating, turning off motors...");
+    M1.disableOutputs();
+    M2.disableOutputs();
+    M3.disableOutputs();
+  }
 }
 
 void splitCommand(){
@@ -184,4 +175,17 @@ void splitCommand(){
       command = command.substring(index+1);
     }
   }
+}
+
+bool inBounds(float x, float y, float z){
+  if(x>=X_BOUND_MAX || x<=X_BOUND_MIN){
+    return false;
+  }
+  if(y>=Y_BOUND_MAX || y<=Y_BOUND_MIN){
+    return false;
+  }
+  if(z>=Z_BOUND_MAX || z<=Z_BOUND_MIN){
+    return false;
+  }
+  return true;
 }

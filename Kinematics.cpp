@@ -70,6 +70,11 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         float th1 = inverse_kinematics(xInterp, yInterp, -zInterp);
         float th2 = inverse_kinematics(xInterp*cos(2*PI/3) - yInterp*sin(2*PI/3), yInterp*cos(2*PI/3) + xInterp*sin(2*PI/3), -zInterp);
         float th3 = inverse_kinematics(xInterp*cos(2*PI/3) + yInterp*sin(2*PI/3), yInterp*cos(2*PI/3) - xInterp*sin(2*PI/3), -zInterp);
+
+        if(th1 < 0 || th2 < 0 || th3 < 0){
+          Serial.println("E1-Commanded angle is out of bounds, disregarding move");
+          break;
+        }
         
         // move steppers
         // find difference in angle to figure out how much the must move
