@@ -4,6 +4,7 @@
 #include "Kinematics.h"
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 // Motors
+#define RMS_CURRENT 800 //mA
 #define EN_PIN        12
 // M1 
 #define M1_STEP_PIN   11
@@ -25,12 +26,13 @@
 #define SW_TX 2
 #define R_SENSE 0.11f //make sure this is correct
 // Motor Params
-#define MAXSPEED 150
+#define MAXSPEED 50
+#define ACCEL MAXSPEED/10
 // Kinematic Params (in mm, origin in center of delta)
-#define X_BOUND_MIN -50
-#define X_BOUND_MAX 50
-#define Y_BOUND_MIN -50
-#define Y_BOUND_MAX 50
+#define X_BOUND_MIN -150
+#define X_BOUND_MAX 150
+#define Y_BOUND_MIN -150
+#define Y_BOUND_MAX 150
 #define Z_BOUND_MIN 50
 #define Z_BOUND_MAX 290
 
@@ -46,17 +48,29 @@ AccelStepper M3(AccelStepper::DRIVER, M3_STEP_PIN, M3_DIR_PIN);
 MultiStepper actuators;
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+//Variables
+enum error {NoError, OutOfBounds, OverHeat}; // low value errors first (high starts at index 1)
 
-long positions[3]; // Array of desired stepper positions
+
+// Array of desired stepper positions
+long positions[3]; 
+// Array of homed stepper motors
 boolean homed[] = {false, false, false};
+//Error Buffer
+error ErrorBuffer;
+
 
 // Commands
 String command = "";
-String commands[20]; 
+String commands[20];
 
-extern Coordinate_f end_effector; //Stores the end effector coordinates (declared in Kinematics.cpp)
+//Stores the current end effector coordinates (declared in Kinematics.cpp)
+extern Coordinate_f end_effector; 
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void setup() {
+  ErrorBuffer = NoError; //Clear Error Buffer
   driver.beginSerial(9600);   // Start driver software serial  
   Serial.begin(115200);       // Start hardware serial
   
@@ -67,32 +81,34 @@ void setup() {
   Serial.println("I0-Setting up stepper driver");
 
   // Stepper Driver Setup
-  driver.begin();               // Initiate pins and registeries
-  driver.pdn_disable(1);        // Use PDN/UART pin for communication
-  driver.toff(1);               // Enables driver in software
-  driver.mstep_reg_select(1);   // microstep read from register
+  driver.begin();                   // Initiate pins and registeries
+  driver.pdn_disable(1);            // Use PDN/UART pin for communication
+  driver.toff(1);                   // Enables driver in software
+  driver.mstep_reg_select(1);       // microstep read from register
   driver.microsteps(16);
-  driver.mres(4);
-  driver.I_scale_analog(false); // Use internal voltage reference
-  driver.rms_current(700);      // Set driver current 700mA (900mA caused drivers to die)
-  driver.en_spreadCycle(false);  // Disable Spread cycle
+  driver.I_scale_analog(false);     // Use internal voltage reference
+  driver.rms_current(RMS_CURRENT);  // Set driver current
+  driver.en_spreadCycle(false);     // Disable Spread cycle
   
   // Stepper Setup
   M1.setEnablePin(EN_PIN);
   M1.setPinsInverted(false, false, true);
   M1.enableOutputs();
+  M1.setAcceleration(ACCEL);
   M1.setMaxSpeed(MAXSPEED);
   M1.setSpeed(MAXSPEED);
 
   M2.setEnablePin(EN_PIN);
   M2.setPinsInverted(false, false, true);
   M2.enableOutputs();
+  M2.setAcceleration(ACCEL);
   M2.setMaxSpeed(MAXSPEED);
   M2.setSpeed(MAXSPEED);
 
   M3.setEnablePin(EN_PIN);
   M3.setPinsInverted(false, false, true);
   M3.enableOutputs();
+  M3.setAcceleration(ACCEL);
   M3.setMaxSpeed(MAXSPEED);
   M3.setSpeed(MAXSPEED);
 
@@ -127,39 +143,40 @@ void setup() {
     actuators.runSpeedToPosition();
   }
   Serial.println("I2-Homing Complete");
+
+  Serial.println("positions: ");
+  Serial.print(positions[0]);
+  Serial.print(", ");
+  Serial.print(positions[1]);
+  Serial.print(", ");
+  Serial.print(positions[2]);
+  Serial.print("\n");
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    // read the incoming string
-    command = Serial.readString();
-    splitCommand();
-    
-    //Linear Move
-    if(commands[0] == "LM"){
-      float xt = commands[1].toFloat();
-      float yt = commands[2].toFloat();
-      float zt = commands[3].toFloat();
-
-      //check bounds
-      if(inBounds(xt, yt, zt)){
-        linear_move(xt, yt, zt, 1.0, positions, &actuators);
-        Serial.println("A2-Linear move complete");
-      }else{
-        Serial.println("E0-Commanded position is out of bounds");
-      }
+  if(!(ErrorBuffer > 1)){
+    if (Serial.available() > 0) {
+      // read the incoming string into command buffer
+      command = Serial.readString();
+      CommandHandler();
     }
-  }
 
-  if(driver.otpw()){ // checks to see if over tempriture flag is true
-    Serial.println("E10-Overheating, turning off motors...");
-    M1.disableOutputs();
-    M2.disableOutputs();
-    M3.disableOutputs();
+    if(driver.otpw()){ // checks to see if over temperature warning flag is true (100 degrees)
+      Serial.println("E10-Overheating, turning off motors...");
+      M1.disableOutputs();
+      M2.disableOutputs();
+      M3.disableOutputs();
+      ErrorBuffer = OverHeat;
+    }
   }
 }
 
 void splitCommand(){
+  /*
+   * Splits a string by spaces
+   * sets commands string array
+   * to each of the splitted commands
+   */
   int StringCount = 0;
   while (command.length() > 0)
   {
@@ -178,6 +195,11 @@ void splitCommand(){
 }
 
 bool inBounds(float x, float y, float z){
+  /*
+  * Checks to see if given coords are within the drawing bounds
+  * Returns true if in bounds
+  * Returns false if out of bounds
+  */
   if(x>=X_BOUND_MAX || x<=X_BOUND_MIN){
     return false;
   }
@@ -188,4 +210,34 @@ bool inBounds(float x, float y, float z){
     return false;
   }
   return true;
+}
+
+void CommandHandler(){
+  /** Used to handle serial commands
+  * Will call the relevant move
+  * Will return a serial error(E1) if the command is not correctly formatted
+  * All serial commands must end in an '!'
+  */
+  if(command.indexOf("!") == -1){ // if there is no character end bit, need to return (E1)
+    Serial.println("E1-Line end not found, repeat command");
+    return;
+  }
+
+  splitCommand(); // split command string into commands array
+
+  if(commands[0] == "LM"){
+    float xt = commands[1].toFloat();
+    float yt = commands[2].toFloat();
+    float zt = commands[3].toFloat();
+
+    //check bounds
+    if(inBounds(xt, yt, zt)){
+      linear_move(xt, yt, zt, 0.5, positions, &actuators);
+      Serial.println("A2-Linear move complete");
+    }else{
+      Serial.println("E0-Commanded position is out of bounds");
+    }
+  }
+  //clear the command buffer
+  command = "";
 }

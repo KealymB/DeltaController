@@ -4,19 +4,18 @@
 
 //Link lengths (mm)
 #define L_Bicep 130
-#define L_Forearm 180
+#define L_Forearm 185.0f
 #define L3 20
 
 #define R_BASE 65
-#define R_WRIST 35
+#define R_WRIST 20
 #define SERVO_OFFSET_Z 20
 
-#define SERVO_ANGLE_MIN 1.91986f //110 degrees
-#define SERVO_ANGLE_MAX 3.14159f //180 degrees
+#define HOME_ANGLE_RAD 1.9025f //109 degrees
+#define RAD2STEP 254.647908947f // = 1600 steps / 2pi rad
 
-#define HOME_ANGLE_RAD 1.91986f //110 degrees
-#define DEG_TO_STEP 9 // 9 steps to one degre (need to check) 8.888889 actually
-
+#define ANGLE_MIN 1.9025f //90 degrees
+#define ANGLE_MAX 4.18879f //240 degrees
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 struct Coordinate_f {

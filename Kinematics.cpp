@@ -18,19 +18,26 @@ void updateEndEffector(struct Coordinate_f *end_effector, float x, float y, floa
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-float inverse_kinematics(float xt, float yt, float zt){    
+float inverse_kinematics(float xt, float yt, float zt){
+  /*    
+   * Takes in end effector coords (x,y,z)
+   * Returns the angle of the stepper motor in rad
+   * Returns -1 if theta the angle is not reachable
+   */
     float arm_end_y = yt + R_WRIST; //added wrist radius to move center to edge
-    float l2_YZ = sqrt(sq(L_Forearm) - sq(xt)); //The length of the bicep when projected onto the YZ plane
+    float l2_YZ = sqrt(sq(L_Forearm) - sq(xt));//The length of the bicep when projected onto the YZ plane
 
     float l2_angle = asin(yt/L_Forearm*1.0); //gives the angle of ball joints, can be used to stop motion
     
     float ext = sqrt(sq(zt) + sq(R_BASE - arm_end_y)); //Extension of the arm from the centre of the servo rotation to the end ball joint of link2
+
+    float test = (sq(L_Bicep) + sq(ext) - sq(l2_YZ)) / (2.0 * L_Bicep * ext);
     
     float phi = acos((sq(L_Bicep) + sq(ext) - sq(l2_YZ)) / (2.0 * L_Bicep * ext)); // Cosine rule that calculates the angle between the ext line and L1
     float omega = -atan2(zt, R_BASE - arm_end_y); //Calculates the angle between horizontal (Y) the ext line with respect to its quadrant
     float theta = phi + omega; //Theta is the angle between horizontal (Y) and the bicep
 
-    if(!(theta >= SERVO_ANGLE_MIN && theta <= SERVO_ANGLE_MAX)){ //Checks the angle is in the reachable range
+    if(!(theta >= ANGLE_MIN && theta <= ANGLE_MAX)){ //Checks the angle is in the reachable range
       return -1.0;
     }
     
@@ -39,7 +46,11 @@ float inverse_kinematics(float xt, float yt, float zt){
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void linear_move(float x1, float y1, float z1, float stepDist, long *positions, MultiStepper *actuators){//interpolates between two points to move in a stright line
+void linear_move(float x1, float y1, float z1, float stepDist, long *positions, MultiStepper *actuators){
+  /*
+   * Takes in desired end effector coords, and interpolation spacing
+   * moves end effector to desired coords in a straight line
+   */
     //Sets the initial position variables
     float x0 = end_effector.x;
     float y0 = end_effector.y;
@@ -50,19 +61,22 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
     float yDist = y1 - y0;
     float zDist = z1 - z0;
     
-    double totalDist = sqrt(sq(xDist) + sq(yDist) + sq(zDist)); //Absolute magnitude of the distance
-    int numberOfSteps = round(totalDist / stepDist);            //Number of steps required for the desired step distance
+    float totalDist = sqrt(sq(xDist) + sq(yDist) + sq(zDist)); //Absolute magnitude of the distance
+    int numberOfSteps = round(totalDist / stepDist);         //Number of steps required for the desired step distance
     
-    float xStep = xDist / (float)numberOfSteps;
-    float yStep = yDist / (float)numberOfSteps;
-    float zStep = zDist / (float)numberOfSteps;
+    float xStep = xDist / numberOfSteps;
+    float yStep = yDist / numberOfSteps;
+    float zStep = zDist / numberOfSteps;
 
     //Interpolation variables
     float xInterp = 0.0;
     float yInterp = 0.0;
     float zInterp = 0.0;
 
-    for(int i = 1; i <= numberOfSteps; i++){
+    //Position error accumulators
+    float errorAccumulator[] = {0.0, 0.0, 0.0};
+
+    for(int i = 1; i <= (int) numberOfSteps; i++){
         xInterp = x0 + i * xStep;
         yInterp = y0 + i * yStep;
         zInterp = z0 + i * zStep;
@@ -85,10 +99,36 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         M1_angle = th1;
         M2_angle = th2;
         M3_angle = th3;
-        
-        positions[0] -= (long) DEG_TO_STEP*M1_D*(4068/71); // have an error accumulator? 
-        positions[1] -= (long) DEG_TO_STEP*M2_D*(4068/71);
-        positions[2] -= (long) DEG_TO_STEP*M3_D*(4068/71);
+
+        float truePos[] = {M1_D*RAD2STEP, M2_D*RAD2STEP, M3_D*RAD2STEP};
+
+        for (int index = 0; index < 3; index++){
+          long roundedPos = (long) truePos[index];
+          errorAccumulator[index] += truePos[index] - roundedPos;
+
+          if(abs(errorAccumulator[index]) >= 1.0f){
+            positions[index] -= errorAccumulator[index];
+            errorAccumulator[index] -= (errorAccumulator[index] > 0.0f ? 1.0f : -1.0f);
+          }
+          
+          positions[index] -= roundedPos;
+        }
+
+//        Serial.println("errors: ");
+//        Serial.print(errorAccumulator[0]);
+//        Serial.print(", ");
+//        Serial.print(errorAccumulator[1]);
+//        Serial.print(", ");
+//        Serial.print(errorAccumulator[2]);
+//        Serial.print("\n");
+//
+//        Serial.println("positions: ");
+//        Serial.print(positions[0]);
+//        Serial.print(", ");
+//        Serial.print(positions[1]);
+//        Serial.print(", ");
+//        Serial.print(positions[2]);
+//        Serial.print("\n");
 
         actuators->moveTo(positions);
         actuators->runSpeedToPosition();
