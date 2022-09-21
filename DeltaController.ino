@@ -58,9 +58,6 @@ error ErrorBuffer;                            //Error Buffer
 long positions[3];                            // Array of desired stepper positions
 boolean homed[] = {false, false, false};      // Array of homed stepper motors
 
-
-
-
 // Commands
 String command = "";
 String commands[20];

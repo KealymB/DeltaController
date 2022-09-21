@@ -6,7 +6,7 @@ float M1_angle = HOME_ANGLE_RAD;
 float M2_angle = HOME_ANGLE_RAD;
 float M3_angle = HOME_ANGLE_RAD;
 
-Coordinate_f end_effector = {0.0, 0.0, 286.0};
+Coordinate_f end_effector = {0.0, 0.0, 286.0}; // starting coords
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 

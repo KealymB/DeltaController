@@ -12,7 +12,7 @@
 #define SERVO_OFFSET_Z 20
 
 #define HOME_ANGLE_RAD 1.9025f    //109 degrees
-#define RAD2STEP 254.647908947f   // = 3200 steps / 2pi rad
+#define RAD2STEP 254.647908947f   //1600 steps / 2*pi rad
 
 #define ANGLE_MIN 1.9025f         //90 degrees
 #define ANGLE_MAX 4.18879f        //240 degrees
