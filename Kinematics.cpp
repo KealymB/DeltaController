@@ -61,8 +61,8 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
     float yDist = y1 - y0;
     float zDist = z1 - z0;
     
-    float totalDist = sqrt(sq(xDist) + sq(yDist) + sq(zDist)); //Absolute magnitude of the distance
-    int numberOfSteps = round(totalDist / stepDist);         //Number of steps required for the desired step distance
+    float totalDist = sqrt(sq(xDist) + sq(yDist) + sq(zDist));  //Absolute magnitude of the distance
+    int numberOfSteps = round(totalDist / stepDist);            //Number of steps required for the desired step distance
     
     float xStep = xDist / numberOfSteps;
     float yStep = yDist / numberOfSteps;
@@ -73,7 +73,7 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
     float yInterp = 0.0;
     float zInterp = 0.0;
 
-    //Position error accumulators
+    //Error accumulator for each stepper position
     float errorAccumulator[] = {0.0, 0.0, 0.0};
 
     for(int i = 1; i <= (int) numberOfSteps; i++){
@@ -90,7 +90,6 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
           break;
         }
         
-        // move steppers
         // find difference in angle to figure out how much the must move
         float M1_D = M1_angle - th1;
         float M2_D = M2_angle - th2;
@@ -100,36 +99,22 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         M2_angle = th2;
         M3_angle = th3;
 
-        float truePos[] = {M1_D*RAD2STEP, M2_D*RAD2STEP, M3_D*RAD2STEP};
+        float truePos[] = {M1_D*RAD2STEP, M2_D*RAD2STEP, M3_D*RAD2STEP}; //convert angle in rad into steps
 
+        //accumulate errors
         for (int index = 0; index < 3; index++){
-          long roundedPos = (long) truePos[index];
-          errorAccumulator[index] += truePos[index] - roundedPos;
-
-          if(abs(errorAccumulator[index]) >= 1.0f){
-            positions[index] -= errorAccumulator[index];
+          long roundedPos = (long) truePos[index];                //round position
+          errorAccumulator[index] += truePos[index] - roundedPos; //accumulate diffeernce between rounded position and true position
+          
+          if(abs(errorAccumulator[index]) >= 1.0f){               //empty accumulator if error is larger than one step
+            positions[index] -= (int) errorAccumulator[index];
             errorAccumulator[index] -= (errorAccumulator[index] > 0.0f ? 1.0f : -1.0f);
           }
           
           positions[index] -= roundedPos;
         }
-
-//        Serial.println("errors: ");
-//        Serial.print(errorAccumulator[0]);
-//        Serial.print(", ");
-//        Serial.print(errorAccumulator[1]);
-//        Serial.print(", ");
-//        Serial.print(errorAccumulator[2]);
-//        Serial.print("\n");
-//
-//        Serial.println("positions: ");
-//        Serial.print(positions[0]);
-//        Serial.print(", ");
-//        Serial.print(positions[1]);
-//        Serial.print(", ");
-//        Serial.print(positions[2]);
-//        Serial.print("\n");
-
+        
+        //move to new position
         actuators->moveTo(positions);
         actuators->runSpeedToPosition();
     }

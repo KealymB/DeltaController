@@ -3,16 +3,17 @@
 #include <TMCStepper.h>
 #include "Kinematics.h"
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
-// Motors
-#define RMS_CURRENT 800 //mA
+// Motor Params
+#define RMS_CURRENT   800   //mA
 #define EN_PIN        12
-// M1 
+
+// M1 Pins
 #define M1_STEP_PIN   11
 #define M1_DIR_PIN    10
-// M2 
+// M2 Pins
 #define M2_STEP_PIN   8
 #define M2_DIR_PIN    7
-// M3 
+// M3 Pins
 #define M3_STEP_PIN   5
 #define M3_DIR_PIN    4
 
@@ -21,20 +22,22 @@
 #define MS2           9
 #define MS3           6
 
-// Driver
-#define SW_RX 3 
-#define SW_TX 2
-#define R_SENSE 0.11f //make sure this is correct
+// Driver Params
+#define SW_RX         3 
+#define SW_TX         2
+#define R_SENSE       0.11f
+
 // Motor Params
-#define MAXSPEED 50
-#define ACCEL MAXSPEED/10
-// Kinematic Params (in mm, origin in center of delta)
-#define X_BOUND_MIN -150
-#define X_BOUND_MAX 150
-#define Y_BOUND_MIN -150
-#define Y_BOUND_MAX 150
-#define Z_BOUND_MIN 50
-#define Z_BOUND_MAX 290
+#define MAXSPEED      50
+#define ACCEL         1
+
+// Kinematic Params   (in mm)
+#define X_BOUND_MIN   -150
+#define X_BOUND_MAX   150
+#define Y_BOUND_MIN   -150
+#define Y_BOUND_MAX   150
+#define Z_BOUND_MIN   50
+#define Z_BOUND_MAX   290
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -49,33 +52,30 @@ MultiStepper actuators;
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 //Variables
-enum error {NoError, OutOfBounds, OverHeat}; // low value errors first (high starts at index 1)
+enum error {NoError, OutOfBounds, OverHeat};  // low value errors first (high starts at index 1)
+error ErrorBuffer;                            //Error Buffer
+
+long positions[3];                            // Array of desired stepper positions
+boolean homed[] = {false, false, false};      // Array of homed stepper motors
 
 
-// Array of desired stepper positions
-long positions[3]; 
-// Array of homed stepper motors
-boolean homed[] = {false, false, false};
-//Error Buffer
-error ErrorBuffer;
 
 
 // Commands
 String command = "";
 String commands[20];
 
-//Stores the current end effector coordinates (declared in Kinematics.cpp)
-extern Coordinate_f end_effector; 
+extern Coordinate_f end_effector;             //Stores the current end effector coordinates (declared in Kinematics.cpp)
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void setup() {
-  ErrorBuffer = NoError; //Clear Error Buffer
+  ErrorBuffer = NoError;      //Clear Error Buffer
   driver.beginSerial(9600);   // Start driver software serial  
   Serial.begin(115200);       // Start hardware serial
   
   while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
+    ; // wait for serial port to connect.
   }
 
   Serial.println("I0-Setting up stepper driver");
@@ -116,6 +116,7 @@ void setup() {
   actuators.addStepper(M2);
   actuators.addStepper(M3);
 
+  // Clear Position Buffer
   positions[0] = 0;
   positions[1] = 0;
   positions[2] = 0;
@@ -123,8 +124,8 @@ void setup() {
   //home motors
   Serial.println("I1-Homing motors, please wait...");
   
-  while (!homed[0]||!homed[1]||!homed[2]) {
-    if(digitalRead(MS1) != HIGH && !homed[0]){
+  while (!homed[0]||!homed[1]||!homed[2]) { // wait till all homed buffers are true
+    if(digitalRead(MS1) != HIGH && !homed[0]){ // rotate stepper counter clockwise until switch is pressed.
       positions[0] = positions[0] - 1;
     }else{
       homed[0] = true;
@@ -142,6 +143,7 @@ void setup() {
     actuators.moveTo(positions);
     actuators.runSpeedToPosition();
   }
+  
   Serial.println("I2-Homing Complete");
 
   Serial.println("positions: ");
@@ -154,20 +156,20 @@ void setup() {
 }
 
 void loop() {
-  if(!(ErrorBuffer > 1)){
-    if (Serial.available() > 0) {
-      // read the incoming string into command buffer
-      command = Serial.readString();
-      CommandHandler();
-    }
+  if(ErrorBuffer > 1)return; // serious error, will stop processing
+  
+  if (Serial.available() > 0) {
+    // read the incoming string into command buffer
+    command = Serial.readString();
+    CommandHandler();
+  }
 
-    if(driver.otpw()){ // checks to see if over temperature warning flag is true (100 degrees)
-      Serial.println("E10-Overheating, turning off motors...");
-      M1.disableOutputs();
-      M2.disableOutputs();
-      M3.disableOutputs();
-      ErrorBuffer = OverHeat;
-    }
+  if(driver.otpw()){ // checks to see if over temperature warning flag is true (100 degrees)
+    Serial.println("E10-Overheating, turning off motors...");
+    M1.disableOutputs();
+    M2.disableOutputs();
+    M3.disableOutputs();
+    ErrorBuffer = OverHeat;
   }
 }
 
