@@ -121,3 +121,64 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
 
     updateEndEffector(&end_effector, x1, y1, z1);
 }
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+void cubic_bezier(float *START, float *C1, float *C2, float *END, long *positions, MultiStepper *actuators){
+  float interpDist = bezierLength(START, C1, C2, END)/10000; //longer arc = less interp, shorter arc = more interp
+
+  for (float T = 0.0f; T <= 1.00001f; T+=interpDist){
+    //quad bezier
+    float xa = linearInterp( START[0] , C1[0] , T );
+    float ya = linearInterp( START[1] , C1[1] , T );
+    float xb = linearInterp( C1[0] , C2[0] , T );
+    float yb = linearInterp( C1[1] , C2[1] , T );
+    float xc = linearInterp( C2[0] , END[0] , T );
+    float yc = linearInterp( C2[1] , END[1] , T );
+    
+    //cubic bezier
+    float xm = linearInterp( xa , xb , T );
+    float ym = linearInterp( ya , yb , T );
+    float xn = linearInterp( xb , xc , T );
+    float yn = linearInterp( yb , yc , T );
+
+    float X = linearInterp(xm, xn, T);
+    float Y = linearInterp(ym, yn, T);
+    
+    //move to coords
+    linear_move(X, Y, DRAW_HEIGHT, interpDist*10, positions, actuators);
+  }
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+void pen_lift(long *positions, MultiStepper *actuators){
+  linear_move(end_effector.x, end_effector.y, LIFT_HEIGHT, 0.5f, positions, actuators);
+}
+
+void pen_drop(long *positions, MultiStepper *actuators){
+  linear_move(end_effector.x, end_effector.y, DRAW_HEIGHT, 0.5f, positions, actuators);
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+float linearInterp(float p1, float p2, float T){
+  float diff = p2 - p1;
+  return p1 + (diff*T);
+}
+
+float bezierLength(float *START, float *C1, float *C2, float *END){
+  float chord = vectorDist(START, END);
+  
+  float cont_net = vectorDist(START, C1) + vectorDist(C1, C2) + vectorDist(C2, END);
+  
+  float approxLength = (cont_net + chord) / 2;
+  return approxLength;
+}
+
+float vectorDist(float *V1, float *V2){
+  float diffX = V2[0] - V1[0];
+  float diffY = V2[1] - V1[1];
+  float dist = sqrt(sq(diffX) + sq(diffY));
+  return dist;
+}
