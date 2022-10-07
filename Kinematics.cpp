@@ -125,7 +125,7 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void cubic_bezier(float *START, float *C1, float *C2, float *END, long *positions, MultiStepper *actuators){
-  float interpDist = bezierLength(START, C1, C2, END)/10000; //longer arc = less interp, shorter arc = more interp
+  float interpDist = 0.05;//bezierLength(START, C1, C2, END)/10000; //longer arc = less interp, shorter arc = more interp
 
   for (float T = 0.0f; T <= 1.00001f; T+=interpDist){
     //quad bezier
@@ -146,7 +146,7 @@ void cubic_bezier(float *START, float *C1, float *C2, float *END, long *position
     float Y = linearInterp(ym, yn, T);
     
     //move to coords
-    linear_move(X, Y, DRAW_HEIGHT, interpDist*10, positions, actuators);
+    linear_move(X, Y, DRAW_HEIGHT, 1, positions, actuators);
   }
 }
 

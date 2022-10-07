@@ -6,22 +6,22 @@
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 // Motor Params
 #define RMS_CURRENT   900   //mA
-#define EN_PIN        12
+#define EN_PIN        13
+
+// Micro Switchs
+#define MS1           4
+#define MS2           5
+#define MS3           6
 
 // M1 Pins
-#define M1_STEP_PIN   11
-#define M1_DIR_PIN    10
+#define M1_DIR_PIN    7
+#define M1_STEP_PIN   8
 // M2 Pins
-#define M2_STEP_PIN   8
-#define M2_DIR_PIN    7
+#define M2_DIR_PIN    9
+#define M2_STEP_PIN   10
 // M3 Pins
-#define M3_STEP_PIN   5
-#define M3_DIR_PIN    4
-
-// MicroSwitch
-#define MS1           13
-#define MS2           9
-#define MS3           6
+#define M3_DIR_PIN    11
+#define M3_STEP_PIN   12
 
 // Driver Params
 #define SW_RX         3 
@@ -53,7 +53,7 @@ MultiStepper actuators;
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 //Variables
-enum error {NoError, OutOfBounds, NoDriverComs, OverHeat};  // low value errors first (high starts at index 1)
+enum error {NoError, OutOfBounds, NoDriverComs, OverHeat};  // low prio errors first (high prio starts at index 3)
 error ErrorBuffer;                            //Error Buffer
 
 long positions[3];                            // Array of desired stepper positions
@@ -61,7 +61,7 @@ boolean homed[] = {false, false, false};      // Array of homed stepper motors
 
 // Commands
 String command = "";
-String commands[20];
+String commands[40];
 
 extern Coordinate_f end_effector;             //Stores the current end effector coordinates (declared in Kinematics.cpp)
 
@@ -77,7 +77,7 @@ void setup() {
     ; // wait for serial port to connect.
   }
 
-  Serial.println("I0-Setting up stepper driver");
+  Serial.println("I0-Setting stepper drivers");
 
   // Stepper Driver Setup
   driver.pdn_disable(true);         // Use PDN/UART pin for communication
@@ -94,6 +94,8 @@ void setup() {
   {
     Serial.println("E2-No Comms to Stepper drivers");
     ErrorBuffer = NoDriverComs;
+  }else {
+    Serial.println("I1-Stepper driver setup successful");  
   }
   
   // Stepper Setup
@@ -131,7 +133,7 @@ void setup() {
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void loop() {
-  if(ErrorBuffer > OutOfBounds)return; // serious error, will stop working
+  if(ErrorBuffer > NoDriverComs)return; // serious error, will stop working
   
   if (Serial.available() > 0) {
     // read the incoming string into command buffer
@@ -139,34 +141,39 @@ void loop() {
     CommandHandler();
   }
 
-  if(driver.checkOT()){ // checks to see if over temperature flag is true (100 degrees)
-    Serial.println("E10-Overheating, turning off motors...");
-    M1.disableOutputs();
-    M2.disableOutputs();
-    M3.disableOutputs();
-    ErrorBuffer = OverHeat;
-    driver.clear_otpw();
-  }
+//  if(driver.checkOT()){ // checks to see if over temperature flag is true (100 degrees)
+//    Serial.println("E5-Overheating, turning off motors...");
+//    driver.clear_otpw(); // Clear Flag
+//    M1.disableOutputs();
+//    M2.disableOutputs();
+//    M3.disableOutputs();
+//    ErrorBuffer = OverHeat;
+//  }
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void homeSteppers(){
   // Moves motors till they have all pressed their limit switches
-  Serial.println("I1-Homing motors, please wait...");
+  Serial.println("I2-Homing motors, please wait...");
+  
+  // clear homing flags
+  homed[0] = false; 
+  homed[1] = false;
+  homed[2] = false;
   
   while (!homed[0]||!homed[1]||!homed[2]) { // wait till all homed buffers are true
-    if(digitalRead(MS1) != HIGH && !homed[0]){ // rotate stepper counter clockwise until switch is pressed.
+    if(!digitalRead(MS1) && !homed[0]){ // rotate stepper counter clockwise until switch is pressed.
       positions[0] = positions[0] - 1;
     }else{
       homed[0] = true;
     }
-    if(digitalRead(MS2) != LOW && !homed[1]){
+    if(!digitalRead(MS2) && !homed[1]){
       positions[1] = positions[1] - 1;
     }else{
       homed[1] = true;
     }
-    if(digitalRead(MS3) != LOW && !homed[2]){
+    if(!digitalRead(MS3) && !homed[2]){
       positions[2] = positions[2] - 1;
     }else{
       homed[2] = true;
@@ -175,7 +182,7 @@ void homeSteppers(){
     actuators.runSpeedToPosition();
   }
   
-  Serial.println("I2-Homing Complete");
+  Serial.println("I3-Homing Complete");
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
