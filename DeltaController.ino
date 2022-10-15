@@ -33,12 +33,14 @@
 #define ACCEL         50
 
 // Kinematic Params   (in mm)
-#define X_BOUND_MIN   -80
-#define X_BOUND_MAX   80
-#define Y_BOUND_MIN   -80
-#define Y_BOUND_MAX   80
+#define X_BOUND_MIN   -65
+#define X_BOUND_MAX   65
+#define Y_BOUND_MIN   -65
+#define Y_BOUND_MAX   65
 #define Z_BOUND_MIN   50
 #define Z_BOUND_MAX   290
+#define DRAW_HEIGHT 160.5f  
+#define LIFT_HEIGHT 165.0f
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -62,6 +64,8 @@ boolean homed[] = {false, false, false};      // Array of homed stepper motors
 // Commands
 String command = "";
 String commands[40];
+float heightToDraw = LIFT_HEIGHT;
+String MODE = "DRAWING";                      // Stores the robots current use
 
 extern Coordinate_f end_effector;             //Stores the current end effector coordinates (declared in Kinematics.cpp)
 
@@ -181,6 +185,9 @@ void homeSteppers(){
     actuators.moveTo(positions);
     actuators.runSpeedToPosition();
   }
+
+  //set end effector pos to starting coords (0, 0, 286) 
+  updateEndEffector(0.0, 0.0, 286.0);
   
   Serial.println("I3-Homing Complete");
 }
@@ -205,6 +212,10 @@ void CommandHandler(){
     float yt = commands[2].toFloat();
     float zt = commands[3].toFloat();
 
+    if (MODE == "DRAWING") {
+      zt = heightToDraw;
+    }
+
     //check bounds
     if(inBounds(xt, yt, zt)){
       linear_move(xt, yt, zt, 0.5, positions, &actuators);
@@ -213,12 +224,15 @@ void CommandHandler(){
       Serial.println("E0-Commanded position is out of bounds");
     }
   }
+
   if(commands[0] == "PL"){ // Pen Lift
     pen_lift(positions, &actuators);
+    heightToDraw = LIFT_HEIGHT;
     Serial.println("A3-Pen Lift complete");
   }
   if(commands[0] == "PD"){ // Pen Drop
     pen_drop(positions, &actuators);
+    heightToDraw = DRAW_HEIGHT;
     Serial.println("A4-Pen Drop complete");
   }
   if(commands[0] == "CB"){ // Cubic Bezier

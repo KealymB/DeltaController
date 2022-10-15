@@ -10,10 +10,10 @@ Coordinate_f end_effector = {0.0, 0.0, 286.0}; // starting coords
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void updateEndEffector(struct Coordinate_f *end_effector, float x, float y, float z){
-  end_effector -> x = x;
-  end_effector -> y = y;
-  end_effector -> z = z;
+void updateEndEffector(float x, float y, float z){
+  end_effector.x = x;
+  end_effector.y = y;
+  end_effector.z = z;
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -24,6 +24,7 @@ float inverse_kinematics(float xt, float yt, float zt){
    * Returns the angle of the stepper motor in rad
    * Returns -1 if theta the angle is not reachable
    */
+    zt = zt + Z_OFFSET;
     float arm_end_y = yt + R_WRIST; //added wrist radius to move center to edge
     float l2_YZ = sqrt(sq(L_Forearm) - sq(xt));//The length of the bicep when projected onto the YZ plane
 
@@ -81,9 +82,9 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         yInterp = y0 + i * yStep;
         zInterp = z0 + i * zStep;
 
-        float th1 = inverse_kinematics(xInterp, yInterp, -zInterp);
-        float th2 = inverse_kinematics(xInterp*cos(2*PI/3) - yInterp*sin(2*PI/3), yInterp*cos(2*PI/3) + xInterp*sin(2*PI/3), -zInterp);
-        float th3 = inverse_kinematics(xInterp*cos(2*PI/3) + yInterp*sin(2*PI/3), yInterp*cos(2*PI/3) - xInterp*sin(2*PI/3), -zInterp);
+        float th3 = inverse_kinematics(xInterp, yInterp, -zInterp);
+        float th1 = inverse_kinematics(xInterp*COS120 - yInterp*SIN120, yInterp*COS120 + xInterp*SIN120, -zInterp);
+        float th2 = inverse_kinematics(xInterp*COS120 + yInterp*SIN120, yInterp*COS120 - xInterp*SIN120, -zInterp);
 
         if(th1 < 0 || th2 < 0 || th3 < 0){
           Serial.println("E1-Commanded angle is out of bounds, disregarding move");
@@ -119,7 +120,7 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         actuators->runSpeedToPosition();
     }
 
-    updateEndEffector(&end_effector, x1, y1, z1);
+    updateEndEffector(x1, y1, z1);
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/

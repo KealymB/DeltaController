@@ -17,8 +17,12 @@
 #define ANGLE_MIN 1.9025f         //90 degrees
 #define ANGLE_MAX 4.18879f        //240 degrees
 
-#define LIFT_HEIGHT 170.0f        //Height in mm to lift pen off surface
-#define DRAW_HEIGHT 150.0f        //Height in mm to put pen on surface
+#define LIFT_HEIGHT 165.0f        //Height in mm to lift pen off surface
+#define DRAW_HEIGHT 160.5f        //Height in mm to put pen on surface
+#define Z_OFFSET 32.0f              //deffirence in height between base rotation points
+
+#define COS120 cos(2*PI/3)
+#define SIN120 sin(2*PI/3)
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 struct Coordinate_f {
@@ -34,7 +38,7 @@ void linear_move(float, float, float, float, long int*, MultiStepper*);
 void cubic_bezier(float*, float*, float*, float*, long int*, MultiStepper*);
 void pen_lift(long int*, MultiStepper*);
 void pen_drop(long int*, MultiStepper*);
-void updateEndEffector(Coordinate_f, float, float, float);
+void updateEndEffector(float, float, float);
 
 //utils
 float vectorDist(float*, float*);
