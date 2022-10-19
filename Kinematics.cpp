@@ -18,13 +18,29 @@ void updateEndEffector(float x, float y, float z){
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
+void calculateActuatorAngles(float x, float y, float z){
+  float th3 = inverse_kinematics(x, y, -z);
+  float th1 = inverse_kinematics(x*COS120 - y*SIN120, y*COS120 + x*SIN120, -z);
+  float th2 = inverse_kinematics(x*COS120 + y*SIN120, y*COS120 - x*SIN120, -z);
+
+  Serial.println(th1);
+  Serial.println(th2);
+  Serial.println(th3);
+
+  M1_angle = th1;
+  M2_angle = th2;
+  M3_angle = th3;
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 float inverse_kinematics(float xt, float yt, float zt){
   /*    
    * Takes in end effector coords (x,y,z)
    * Returns the angle of the stepper motor in rad
    * Returns -1 if theta the angle is not reachable
    */
-    zt = zt + Z_OFFSET;
+    zt = zt - Z_OFFSET - PEN_OFFSET;
     float arm_end_y = yt + R_WRIST; //added wrist radius to move center to edge
     float l2_YZ = sqrt(sq(L_Forearm) - sq(xt));//The length of the bicep when projected onto the YZ plane
 
@@ -125,9 +141,9 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void cubic_bezier(float *START, float *C1, float *C2, float *END, long *positions, MultiStepper *actuators){
-  float interpDist = 0.05;//bezierLength(START, C1, C2, END)/10000; //longer arc = less interp, shorter arc = more interp
-
+void cubic_bezier(float *START, float *C1, float *C2, float *END, float zHeight, long *positions, MultiStepper *actuators){
+  float interpDist = 0.1;
+  
   for (float T = 0.0f; T <= 1.00001f; T+=interpDist){
     //quad bezier
     float xa = linearInterp( START[0] , C1[0] , T );
@@ -147,18 +163,14 @@ void cubic_bezier(float *START, float *C1, float *C2, float *END, long *position
     float Y = linearInterp(ym, yn, T);
     
     //move to coords
-    linear_move(X, Y, DRAW_HEIGHT, 1, positions, actuators);
+    linear_move(X, Y, zHeight, 0.01f, positions, actuators);
   }
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void pen_lift(long *positions, MultiStepper *actuators){
-  linear_move(end_effector.x, end_effector.y, LIFT_HEIGHT, 0.5f, positions, actuators);
-}
-
-void pen_drop(long *positions, MultiStepper *actuators){
-  linear_move(end_effector.x, end_effector.y, DRAW_HEIGHT, 0.5f, positions, actuators);
+void zJog(float zHeight,long *positions, MultiStepper *actuators){
+  linear_move(end_effector.x, end_effector.y, zHeight, 0.5f, positions, actuators);
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/

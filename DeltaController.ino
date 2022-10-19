@@ -37,11 +37,8 @@
 #define X_BOUND_MAX   65
 #define Y_BOUND_MIN   -65
 #define Y_BOUND_MAX   65
-#define Z_BOUND_MIN   50
-#define Z_BOUND_MAX   290
-#define DRAW_HEIGHT 160.5f  
-#define LIFT_HEIGHT 165.0f
-
+#define Z_BOUND_MIN   -20
+#define Z_BOUND_MAX   180
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 TMC2208Stepper driver = TMC2208Stepper(SW_RX, SW_TX); // create TMC2208 driver
@@ -64,8 +61,6 @@ boolean homed[] = {false, false, false};      // Array of homed stepper motors
 // Commands
 String command = "";
 String commands[40];
-float heightToDraw = LIFT_HEIGHT;
-String MODE = "DRAWING";                      // Stores the robots current use
 
 extern Coordinate_f end_effector;             //Stores the current end effector coordinates (declared in Kinematics.cpp)
 
@@ -186,8 +181,9 @@ void homeSteppers(){
     actuators.runSpeedToPosition();
   }
 
-  //set end effector pos to starting coords (0, 0, 286) 
-  updateEndEffector(0.0, 0.0, 286.0);
+  float startingCoords[] = {3, -6.0, 153.0};
+  updateEndEffector(startingCoords[0], startingCoords[1], startingCoords[2]);
+  calculateActuatorAngles(startingCoords[0], startingCoords[1], startingCoords[2]);
   
   Serial.println("I3-Homing Complete");
 }
@@ -212,10 +208,6 @@ void CommandHandler(){
     float yt = commands[2].toFloat();
     float zt = commands[3].toFloat();
 
-    if (MODE == "DRAWING") {
-      zt = heightToDraw;
-    }
-
     //check bounds
     if(inBounds(xt, yt, zt)){
       linear_move(xt, yt, zt, 0.5, positions, &actuators);
@@ -225,23 +217,21 @@ void CommandHandler(){
     }
   }
 
-  if(commands[0] == "PL"){ // Pen Lift
-    pen_lift(positions, &actuators);
-    heightToDraw = LIFT_HEIGHT;
-    Serial.println("A3-Pen Lift complete");
+  if(commands[0] == "JZ"){ // Jog Z-Axis
+    float zHeight = commands[1].toFloat();
+    zJog(zHeight, positions, &actuators);
+    Serial.println("A3-Z jog complete");
   }
-  if(commands[0] == "PD"){ // Pen Drop
-    pen_drop(positions, &actuators);
-    heightToDraw = DRAW_HEIGHT;
-    Serial.println("A4-Pen Drop complete");
-  }
+  
   if(commands[0] == "CB"){ // Cubic Bezier
     float START[] = {commands[1].toFloat(), commands[2].toFloat()};
     float C1[] = {commands[3].toFloat(), commands[4].toFloat()};
     float C2[] = {commands[5].toFloat(), commands[6].toFloat()};
     float END[] = {commands[7].toFloat(), commands[8].toFloat()};
-
-    cubic_bezier(START, C1, C2, END, positions, &actuators);
+    
+    float zHeight = commands[9].toFloat();
+    
+    cubic_bezier(START, C1, C2, END, zHeight, positions, &actuators);
     Serial.println("A5-Cubic Bezier move complete");
   }
   if(commands[0] == "HS"){ // Home Steppers
