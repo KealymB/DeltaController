@@ -1,12 +1,14 @@
 #include "Kinematics.h"
 #include <math.h>
 #include <MultiStepper.h>
+#include <EEPROM.h>
 
 float M1_angle = HOME_ANGLE_RAD;
 float M2_angle = HOME_ANGLE_RAD;
 float M3_angle = HOME_ANGLE_RAD;
 
 Coordinate_f end_effector = {0.0, 0.0, 286.0}; // starting coords
+vert mesh = {0.0, 0.0, 0.0, 0.0}; // The mesh level
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -18,14 +20,33 @@ void updateEndEffector(float x, float y, float z){
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-void calculateActuatorAngles(float x, float y, float z){
-  float th3 = inverse_kinematics(x, y, -z);
-  float th1 = inverse_kinematics(x*COS120 - y*SIN120, y*COS120 + x*SIN120, -z);
-  float th2 = inverse_kinematics(x*COS120 + y*SIN120, y*COS120 - x*SIN120, -z);
+void readMeshHeights(){
+  vert readMesh;
+  EEPROM.get(MESHADDRESS, readMesh);
+    
+  mesh.A = readMesh.A;
+  mesh.B = readMesh.B;
+  mesh.C = readMesh.C;
+  mesh.D = readMesh.D;
+}
 
-  Serial.println(th1);
-  Serial.println(th2);
-  Serial.println(th3);
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+void setMeshHeights(float Aheight, float Bheight, float Cheight, float Dheight){
+  mesh.A = Aheight;// location(-XMAX, YMAX)
+  mesh.B = Bheight;// location(XMAX, YMAX)
+  mesh.C = Cheight;// location(XMAX, -YMAX)
+  mesh.D = Dheight;// location(-YMAX, -YMAX)
+
+  EEPROM.put(MESHADDRESS, mesh);
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+void calculateActuatorAngles(float x, float y, float z){
+  float th1 = inverse_kinematics(x, y, -z);
+  float th2 = inverse_kinematics(x*COS120 - y*SIN120, y*COS120 + x*SIN120, -z);
+  float th3 = inverse_kinematics(x*COS120 + y*SIN120, y*COS120 - x*SIN120, -z);
 
   M1_angle = th1;
   M2_angle = th2;
@@ -98,9 +119,13 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         yInterp = y0 + i * yStep;
         zInterp = z0 + i * zStep;
 
-        float th3 = inverse_kinematics(xInterp, yInterp, -zInterp);
+        if (zInterp <= 50.0){ // if drawing then use mesh leveler
+          zInterp = zInterp + mesh_level(xInterp, yInterp);
+        }
+
         float th1 = inverse_kinematics(xInterp*COS120 - yInterp*SIN120, yInterp*COS120 + xInterp*SIN120, -zInterp);
-        float th2 = inverse_kinematics(xInterp*COS120 + yInterp*SIN120, yInterp*COS120 - xInterp*SIN120, -zInterp);
+        float th2 = inverse_kinematics(xInterp, yInterp, -zInterp);
+        float th3 = inverse_kinematics(xInterp*COS120 + yInterp*SIN120, yInterp*COS120 - xInterp*SIN120, -zInterp);
 
         if(th1 < 0 || th2 < 0 || th3 < 0){
           Serial.println("E1-Commanded angle is out of bounds, disregarding move");
@@ -174,6 +199,22 @@ void zJog(float zHeight,long *positions, MultiStepper *actuators){
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+float mesh_level(float x, float y){
+  /*
+   *      A-------B
+   *      |       |
+   *      |       |
+   *      |       |
+   *      D-------C 
+   */  
+  float qa = (-YMAX -y)/(2.0*(-YMAX))*mesh.A + (y - YMAX)/(2.0*(-YMAX))*mesh.D;
+  float qb = (-YMAX -y)/(2.0*(-YMAX))*mesh.B + (y - YMAX)/(2.0*(-YMAX))*mesh.C;
+  
+  float zHeight = (-XMAX -x)/(2.0*(XMAX))*qa + (x - XMAX)/(2.0*(XMAX))*qb;
+  
+  return zHeight;
+}
 
 float linearInterp(float p1, float p2, float T){
   float diff = p2 - p1;

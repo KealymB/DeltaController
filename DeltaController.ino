@@ -37,7 +37,7 @@
 #define X_BOUND_MAX   65
 #define Y_BOUND_MIN   -65
 #define Y_BOUND_MAX   65
-#define Z_BOUND_MIN   -20
+#define Z_BOUND_MIN   -10
 #define Z_BOUND_MAX   180
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -127,6 +127,9 @@ void setup() {
   positions[0] = 0;
   positions[1] = 0;
   positions[2] = 0;
+
+  // Read mesh level values
+  readMeshHeights();
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -181,7 +184,7 @@ void homeSteppers(){
     actuators.runSpeedToPosition();
   }
 
-  float startingCoords[] = {3, -6.0, 153.0};
+  float startingCoords[] = {0.0, 0.0, 153.0};
   updateEndEffector(startingCoords[0], startingCoords[1], startingCoords[2]);
   calculateActuatorAngles(startingCoords[0], startingCoords[1], startingCoords[2]);
   
@@ -234,9 +237,25 @@ void CommandHandler(){
     cubic_bezier(START, C1, C2, END, zHeight, positions, &actuators);
     Serial.println("A5-Cubic Bezier move complete");
   }
+
+  if(commands[0] == "SV"){ // set velocity (stepers per second)
+      float maxSpeed = commands[1].toFloat();
+      // TODO:  check for speed bounds...
+      M1.setMaxSpeed(maxSpeed);
+      M2.setMaxSpeed(maxSpeed);
+      M3.setMaxSpeed(maxSpeed);
+      Serial.println("A6-Velocity set successfully");
+  }
+
+  if(commands[0] == "SB"){ // set bed height (Aheight, Bheight, Cheight, Dheight)
+    setMeshHeights(commands[1].toFloat(), commands[2].toFloat(), commands[3].toFloat(), commands[4].toFloat());
+    Serial.println("A7-Height Set");
+  }
+  
   if(commands[0] == "HS"){ // Home Steppers
     homeSteppers();  
   }
+  
   //clear the command buffer
   command = "";
 }
