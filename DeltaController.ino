@@ -184,7 +184,7 @@ void homeSteppers(){
     actuators.runSpeedToPosition();
   }
 
-  float startingCoords[] = {0.0, 0.0, 153.0};
+  float startingCoords[] = {6.0, 0.0, 153.0};
   updateEndEffector(startingCoords[0], startingCoords[1], startingCoords[2]);
   calculateActuatorAngles(startingCoords[0], startingCoords[1], startingCoords[2]);
   

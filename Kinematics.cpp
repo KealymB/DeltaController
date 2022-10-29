@@ -44,8 +44,8 @@ void setMeshHeights(float Aheight, float Bheight, float Cheight, float Dheight){
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void calculateActuatorAngles(float x, float y, float z){
-  float th1 = inverse_kinematics(x, y, -z);
-  float th2 = inverse_kinematics(x*COS120 - y*SIN120, y*COS120 + x*SIN120, -z);
+  float th1 = inverse_kinematics(x*COS120 - y*SIN120, y*COS120 + x*SIN120, -z);
+  float th2 = inverse_kinematics(x, y, -z);
   float th3 = inverse_kinematics(x*COS120 + y*SIN120, y*COS120 - x*SIN120, -z);
 
   M1_angle = th1;
