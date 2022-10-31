@@ -29,7 +29,7 @@
 #define R_SENSE       0.11f
 
 // Motor Params
-#define MAXSPEED      150
+#define MAXSPEED      350
 #define ACCEL         50
 
 // Kinematic Params   (in mm)
@@ -84,7 +84,7 @@ void setup() {
   driver.rms_current(RMS_CURRENT);  // Set driver current
   driver.toff(2);                   // Enable driver in software
   driver.mstep_reg_select(1);       // Set MS to be read from register
-  driver.microsteps(32);            // Set microsteps to 32
+  driver.microsteps(64);            // Set microsteps to 32
 
   uint32_t data = 0;
   driver.DRV_STATUS(&data);         // Test driver comms

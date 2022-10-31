@@ -7,7 +7,7 @@ float M1_angle = HOME_ANGLE_RAD;
 float M2_angle = HOME_ANGLE_RAD;
 float M3_angle = HOME_ANGLE_RAD;
 
-Coordinate_f end_effector = {0.0, 0.0, 286.0}; // starting coords
+Coordinate_f end_effector = {0.0, 0.0, 286.0}; // starting coordsR_BASE
 vert mesh = {0.0, 0.0, 0.0, 0.0}; // The mesh level
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -120,7 +120,12 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
         zInterp = z0 + i * zStep;
 
         if (zInterp <= 50.0){ // if drawing then use mesh leveler
+          // calculate mesh plane
           zInterp = zInterp + mesh_level(xInterp, yInterp);
+          //create circular height adder function
+          float radius = sqrt(sq(xInterp) + sq(yInterp));
+          float addedHeight = 4.0*abs((85.0-radius)/85.0); // the height of 4 was from testing, the 60 is the 'max' radius away
+          zInterp = zInterp + addedHeight;
         }
 
         float th1 = inverse_kinematics(xInterp*COS120 - yInterp*SIN120, yInterp*COS120 + xInterp*SIN120, -zInterp);
