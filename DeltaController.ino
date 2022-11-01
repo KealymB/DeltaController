@@ -1,7 +1,8 @@
+#include "Kinematics.h"
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 #include <TMC2208Stepper.h> 
-#include "Kinematics.h"
+#include <EEPROM.h>
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 // Motor Params
@@ -29,7 +30,8 @@
 #define R_SENSE       0.11f
 
 // Motor Params
-#define MAXSPEED      350
+#define MAXSPEED      450
+#define MINSPEED      150
 #define ACCEL         50
 
 // Kinematic Params   (in mm)
@@ -63,6 +65,7 @@ String command = "";
 String commands[40];
 
 extern Coordinate_f end_effector;             //Stores the current end effector coordinates (declared in Kinematics.cpp)
+extern vert mesh;  
 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
@@ -96,28 +99,30 @@ void setup() {
   }else {
     Serial.println("I1-Stepper driver setup successful");  
   }
+
+  int velocity = readVelocity();
   
   // Stepper Setup
   M1.setEnablePin(EN_PIN);
   M1.setPinsInverted(false, false, true);
   M1.enableOutputs();
   M1.setAcceleration(ACCEL);
-  M1.setMaxSpeed(MAXSPEED);
-  M1.setSpeed(MAXSPEED);
+  M1.setMaxSpeed(velocity);
+  M1.setSpeed(velocity);
 
   M2.setEnablePin(EN_PIN);
   M2.setPinsInverted(false, false, true);
   M2.enableOutputs();
   M2.setAcceleration(ACCEL);
-  M2.setMaxSpeed(MAXSPEED);
-  M2.setSpeed(MAXSPEED);
+  M2.setMaxSpeed(velocity);
+  M2.setSpeed(velocity);
 
   M3.setEnablePin(EN_PIN);
   M3.setPinsInverted(false, false, true);
   M3.enableOutputs();
   M3.setAcceleration(ACCEL);
-  M3.setMaxSpeed(MAXSPEED);
-  M3.setSpeed(MAXSPEED);
+  M3.setMaxSpeed(velocity);
+  M3.setSpeed(velocity);
 
   actuators.addStepper(M1);
   actuators.addStepper(M2);
@@ -241,15 +246,21 @@ void CommandHandler(){
   if(commands[0] == "SV"){ // set velocity (stepers per second)
       float maxSpeed = commands[1].toFloat();
       // TODO:  check for speed bounds...
-      M1.setMaxSpeed(maxSpeed);
-      M2.setMaxSpeed(maxSpeed);
-      M3.setMaxSpeed(maxSpeed);
-      Serial.println("A6-Velocity set successfully");
+      if (maxSpeed > MINSPEED && maxSpeed <= MAXSPEED) {
+        setVelocity(maxSpeed);
+        Serial.println("A6-Velocity set successfully");
+      }else{
+        Serial.println("E7-Velocity out of range (150 - 450)");
+      }
   }
 
   if(commands[0] == "SB"){ // set bed height (Aheight, Bheight, Cheight, Dheight)
     setMeshHeights(commands[1].toFloat(), commands[2].toFloat(), commands[3].toFloat(), commands[4].toFloat());
     Serial.println("A7-Height Set");
+  }
+
+  if(commands[0] == "VC"){ // view configuration (prints the set velocity and set bed heights);
+    printParams();
   }
   
   if(commands[0] == "HS"){ // Home Steppers
@@ -303,4 +314,46 @@ bool inBounds(float x, float y, float z){
     return false;
   }
   return true;
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+int readVelocity(){
+  int VELOCITYADDRESS = 50;
+  int velocity;
+  EEPROM.get(VELOCITYADDRESS, velocity);
+  
+  return velocity;
+}
+
+void setVelocity(int velocity){
+  int VELOCITYADDRESS = 50;
+  
+  M1.setMaxSpeed(velocity);
+  M2.setMaxSpeed(velocity);
+  M3.setMaxSpeed(velocity);
+  
+  EEPROM.put(VELOCITYADDRESS, velocity);
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+void printParams(){
+  Serial.println("----CONFIG----");
+
+  Serial.print("Bed Heights: A= ")
+  Serial.print(mesh.A);
+  Serial.print("; B= ")
+  Serial.print(mesh.B);
+  Serial.print("; C= ")
+  Serial.print(mesh.C);
+  Serial.print("; D= ")
+  Serial.print(mesh.D);
+  
+  Serial.println();
+  
+  Serial.print("Velocity: ");
+  Serial.print(readVelocity());
+  
+  Serial.println();
 }
