@@ -68,8 +68,6 @@ float inverse_kinematics(float xt, float yt, float zt){
     float l2_angle = asin(yt/L_Forearm*1.0); //gives the angle of ball joints, can be used to stop motion
     
     float ext = sqrt(sq(zt) + sq(R_BASE - arm_end_y)); //Extension of the arm from the centre of the servo rotation to the end ball joint of link2
-
-    float test = (sq(L_Bicep) + sq(ext) - sq(l2_YZ)) / (2.0 * L_Bicep * ext);
     
     float phi = acos((sq(L_Bicep) + sq(ext) - sq(l2_YZ)) / (2.0 * L_Bicep * ext)); // Cosine rule that calculates the angle between the ext line and L1
     float omega = -atan2(zt, R_BASE - arm_end_y); //Calculates the angle between horizontal (Y) the ext line with respect to its quadrant
@@ -114,7 +112,7 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
     //Error accumulator for each stepper position
     float errorAccumulator[] = {0.0, 0.0, 0.0};
 
-    for(int i = 1; i <= (int) numberOfSteps; i++){
+    for(int i = 1; i <= numberOfSteps; i++){
         xInterp = x0 + i * xStep;
         yInterp = y0 + i * yStep;
         zInterp = z0 + i * zStep;

@@ -94,7 +94,7 @@ void setup() {
 
   if(data == 0) 
   {
-    Serial.println("E2-No Comms to Stepper drivers");
+    Serial.println("E4-No Comms to Stepper drivers");
     ErrorBuffer = NoDriverComs;
   }else {
     Serial.println("I1-Stepper driver setup successful");  
@@ -201,11 +201,11 @@ void homeSteppers(){
 void CommandHandler(){
   /** Used to handle serial commands
   * Will call the relevant move
-  * Will return a serial error(E1) if the command is not correctly formatted
+  * Will return a serial error(E3) if the command is not correctly formatted
   * All serial commands must end in an '!'
   */
-  if(command.indexOf("!") == -1){ // if there is no character end bit, need to return (E1)
-    Serial.println("E1-Line end not found, repeat command");
+  if(command.indexOf("!") == -1){ // if there is no character end bit, need to return (E3)
+    Serial.println("E3-Line end not found, repeat command");
     return;
   }
 
@@ -250,13 +250,14 @@ void CommandHandler(){
         setVelocity(maxSpeed);
         Serial.println("A6-Velocity set successfully");
       }else{
-        Serial.println("E7-Velocity out of range (150 - 450)");
+        Serial.println("E1-Velocity out of range (150 - 450)");
       }
   }
 
   if(commands[0] == "SB"){ // set bed height (Aheight, Bheight, Cheight, Dheight)
     setMeshHeights(commands[1].toFloat(), commands[2].toFloat(), commands[3].toFloat(), commands[4].toFloat());
     Serial.println("A7-Height Set");
+    //TODO: add bounds check for heights and curvature
   }
 
   if(commands[0] == "VC"){ // view configuration (prints the set velocity and set bed heights);
@@ -341,14 +342,15 @@ void setVelocity(int velocity){
 void printParams(){
   Serial.println("----CONFIG----");
 
-  Serial.print("Bed Heights: A= ")
+  Serial.print("Bed Heights: A= ");
   Serial.print(mesh.A);
-  Serial.print("; B= ")
+  Serial.print("; B= ");
   Serial.print(mesh.B);
-  Serial.print("; C= ")
+  Serial.print("; C= ");
   Serial.print(mesh.C);
-  Serial.print("; D= ")
+  Serial.print("; D= ");
   Serial.print(mesh.D);
+  Serial.print(";");
   
   Serial.println();
   
