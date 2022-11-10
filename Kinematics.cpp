@@ -170,7 +170,7 @@ void linear_move(float x1, float y1, float z1, float stepDist, long *positions, 
 /*------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
 void cubic_bezier(float *START, float *C1, float *C2, float *END, float zHeight, long *positions, MultiStepper *actuators){
-  float interpDist = 0.1;
+  float interpDist = 0.025;
   
   for (float T = 0.0f; T <= 1.00001f; T+=interpDist){
     //quad bezier

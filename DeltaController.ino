@@ -62,7 +62,7 @@ boolean homed[] = {false, false, false};      // Array of homed stepper motors
 
 // Commands
 String command = "";
-String commands[40];
+String commands[20];
 
 extern Coordinate_f end_effector;             //Stores the current end effector coordinates (declared in Kinematics.cpp)
 extern vert mesh;  
@@ -236,7 +236,7 @@ void CommandHandler(){
     float C1[] = {commands[3].toFloat(), commands[4].toFloat()};
     float C2[] = {commands[5].toFloat(), commands[6].toFloat()};
     float END[] = {commands[7].toFloat(), commands[8].toFloat()};
-    
+
     float zHeight = commands[9].toFloat();
     
     cubic_bezier(START, C1, C2, END, zHeight, positions, &actuators);
